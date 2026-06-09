@@ -2,12 +2,12 @@ import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyD223Fms3H84sISqXSxErH62envmSOtrpk",
-  authDomain:        "ncvs-donation-tracker.firebaseapp.com",
-  projectId:         "ncvs-donation-tracker",
-  storageBucket:     "ncvs-donation-tracker.firebasestorage.app",
-  messagingSenderId: "124246167991",
-  appId:             "1:124246167991:web:1fd74fa287b76abff99832"
+  apiKey:            "AIzaSyAiRlhirVBdSUPb0duk9eagmfqT2uX_BN8",
+  authDomain:        "donation-tracker-f914e.firebaseapp.com",
+  projectId:         "donation-tracker-f914e",
+  storageBucket:     "donation-tracker-f914e.firebasestorage.app",
+  messagingSenderId: "246871755891",
+  appId:             "1:246871755891:web:91edd020299ac50193ae06"
 }
 
 const app = initializeApp(firebaseConfig)
