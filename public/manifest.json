@@ -1,7 +1,6 @@
 {
   "name": "NCVS Donation Tracker",
   "short_name": "NCVS",
-  "description": "Niranam Chundan Vallasamithi — Donation & Subscription Tracker",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#085041",

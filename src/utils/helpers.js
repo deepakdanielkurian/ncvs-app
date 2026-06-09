@@ -1,7 +1,7 @@
 export const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')
 
 export const inr = n => {
-  if (!n) return '₹0'
+  if (!n && n !== 0) return '₹0'
   n = Math.round(Number(n))
   let s = n.toString(), r = s.slice(-3), rest = s.slice(0, -3), p = []
   while (rest.length > 2) { p.push(rest.slice(-2)); rest = rest.slice(0, -2) }
@@ -18,12 +18,7 @@ export const fmtDate = d => {
 export const todayStr = () => new Date().toISOString().split('T')[0]
 
 export const initials = name =>
-  name.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?'
-
-export const GROUP_COLORS = {
-  NRI:    { bg: '#E6F1FB', text: '#0C447C' },
-  Kerala: { bg: '#E1F5EE', text: '#085041' }
-}
+  (name || '').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase() || '?'
 
 export const PAY_METHODS = [
   'NCVS Acc Transfer',
@@ -41,3 +36,22 @@ export const filterByPeriod = (list, period) => {
   if (period === 'month') return list.filter(e => e.date >= mo)
   return list
 }
+
+// Colors
+export const C = {
+  hdr:    '#085041', hdrAcc: '#1D9E75', hdrLt: '#E1F5EE',
+  nri:    '#0C447C', nriLt:  '#E6F1FB',
+  ker:    '#085041', kerLt:  '#E1F5EE',
+  pur:    '#3C3489', purLt:  '#EEEDFE',
+  amb:    '#633806', ambLt:  '#FAEEDA',
+  grn:    '#27500A', grnLt:  '#EAF3DE',
+  gld:    '#BA7517', gldLt:  '#FFF8E1',
+  red:    '#A32D2D', redLt:  '#FCEBEB',
+  bg:     '#F1EFE8', bd:     '#D3D1C7',
+  mid:    '#888780', dk:     '#2C2C2A',
+  white:  '#ffffff',
+}
+
+export const groupStyle = g => g === 'NRI'
+  ? { bg: C.nriLt, color: C.nri }
+  : { bg: C.kerLt, color: C.ker }

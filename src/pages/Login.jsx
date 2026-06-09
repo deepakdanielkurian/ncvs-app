@@ -1,66 +1,92 @@
 import { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useApp } from '../contexts/AppContext'
+import { C } from '../utils/helpers'
 
 export default function Login() {
-  const [email, setEmail]   = useState('')
-  const [pw, setPw]         = useState('')
-  const [err, setErr]       = useState('')
-  const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-  const nav = useNavigate()
+  const { login, authLoading } = useApp()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [err, setErr]           = useState('')
 
   const handle = async (e) => {
     e.preventDefault()
-    setErr(''); setLoading(true)
-    try {
-      await login(email.trim(), pw)
-      nav('/')
-    } catch (e) {
-      setErr('Invalid email or password. Please try again.')
-    } finally { setLoading(false) }
+    setErr('')
+    if (!username.trim() || !password) { setErr('Enter username and password'); return }
+    const res = await login(username, password)
+    if (!res.ok) setErr(res.error)
+  }
+
+  const inp = {
+    width: '100%', border: `1px solid ${C.bd}`, borderRadius: 10,
+    padding: '12px 14px', fontSize: 15, color: C.dk,
+    background: '#F8F7F4', outline: 'none', fontFamily: 'inherit',
+    WebkitAppearance: 'none', boxSizing: 'border-box',
   }
 
   return (
-    <div className="login-wrap">
-      <div className="login-card fade-up">
-        <div className="login-logo">
-          <div style={{ fontSize:44, marginBottom:8 }}>⚓</div>
-          <div className="login-org">Niranam Chundan Vallasamithi</div>
-          <div className="login-sub">നിരണം ചുണ്ടൻ വള്ളസമിതി · Reg. No. PTM/TC/229/2021</div>
+    <div style={{
+      minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: 24, background: C.hdr,
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 18,
+        padding: '32px 24px', width: '100%', maxWidth: 380,
+        boxShadow: '0 20px 60px rgba(0,0,0,.3)',
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: C.hdr, margin: '0 auto 14px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <i className="ti ti-sailboat" style={{ fontSize: 36, color: '#fff' }} />
+          </div>
+          <div style={{ fontFamily: 'Georgia, serif', fontSize: 17, fontWeight: 700, color: C.hdr, lineHeight: 1.3 }}>
+            Niranam Chundan Vallasamithi
+          </div>
+          <div style={{ fontSize: 11, color: C.mid, marginTop: 4 }}>
+            നിരണം ചുണ്ടൻ വള്ളസമിതി
+          </div>
+          <div style={{ fontSize: 11, color: C.mid }}>Reg. No. PTM/TC/229/2021</div>
         </div>
 
-        <div className="login-title">Sign in</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: C.dk, marginBottom: 20 }}>Sign in</div>
 
-        {err && <div className="login-err">⚠️ {err}</div>}
+        {err && (
+          <div style={{
+            background: C.redLt, color: C.red,
+            padding: '10px 14px', borderRadius: 8,
+            fontSize: 13, marginBottom: 14, borderLeft: `3px solid ${C.red}`,
+          }}>
+            ⚠️ {err}
+          </div>
+        )}
 
         <form onSubmit={handle}>
-          <div className="field">
-            <label>Email address</label>
-            <input
-              type="email" value={email} required
-              onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              autoComplete="email"
-            />
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.mid, marginBottom: 5 }}>Username</div>
+            <input value={username} onChange={e => setUsername(e.target.value)}
+              placeholder="Enter username" style={inp} autoComplete="username" autoCapitalize="none" />
           </div>
-          <div className="field">
-            <label>Password</label>
-            <input
-              type="password" value={pw} required
-              onChange={e => setPw(e.target.value)}
-              placeholder="Enter password"
-              autoComplete="current-password"
-            />
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.mid, marginBottom: 5 }}>Password</div>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="Enter password" style={inp} autoComplete="current-password" />
           </div>
-          <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign in'}
+          <button type="submit" disabled={authLoading} style={{
+            width: '100%', padding: 14, background: authLoading ? C.mid : C.hdr,
+            color: '#fff', border: 'none', borderRadius: 10,
+            fontSize: 15, fontWeight: 700, cursor: authLoading ? 'not-allowed' : 'pointer',
+          }}>
+            {authLoading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <div style={{ marginTop:20, fontSize:11, color:'var(--mid)', textAlign:'center', lineHeight:1.6 }}>
+        <div style={{ marginTop: 20, fontSize: 11, color: C.mid, textAlign: 'center', lineHeight: 1.7 }}>
           Contact admin to get your login credentials.<br />
-          FY 2026–27 Donation Tracker
+          <span style={{ color: C.hdr, fontWeight: 600 }}>FY 2026–27 Donation Tracker</span>
         </div>
       </div>
     </div>

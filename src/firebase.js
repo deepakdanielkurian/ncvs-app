@@ -1,22 +1,15 @@
-// ─────────────────────────────────────────────
-// STEP 1: Replace these values with YOUR Firebase project config
-// Go to: console.firebase.google.com
-// → Your project → Project Settings → General → Your apps → Firebase SDK snippet → Config
-// ─────────────────────────────────────────────
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey:            "AIzaSyD223Fms3H84sISqXSxErH62envmSOtrpk",
+  authDomain:        "ncvs-donation-tracker.firebaseapp.com",
+  projectId:         "ncvs-donation-tracker",
+  storageBucket:     "ncvs-donation-tracker.firebasestorage.app",
+  messagingSenderId: "124246167991",
+  appId:             "1:124246167991:web:1fd74fa287b76abff99832"
 }
 
 const app = initializeApp(firebaseConfig)
-export const db   = getFirestore(app)
-export const auth = getAuth(app)
+export const db = getFirestore(app)
 export default app

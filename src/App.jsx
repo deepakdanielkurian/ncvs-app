@@ -1,36 +1,58 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext'
-import Login        from './pages/Login'
-import Home         from './pages/Home'
-import Members      from './pages/Members'
-import Entries      from './pages/Entries'
-import Attendance   from './pages/Attendance'
-import Report       from './pages/Report'
-import Admin        from './pages/Admin'
-import Layout       from './components/Layout'
-import Toast        from './components/Toast'
+import { useState } from 'react'
+import { useApp } from './contexts/AppContext'
+import Login      from './pages/Login'
+import Home       from './pages/Home'
+import Members    from './pages/Members'
+import Entries    from './pages/Entries'
+import Attendance from './pages/Attendance'
+import Report     from './pages/Report'
+import Admin      from './pages/Admin'
+import Toast      from './components/Toast'
+import BottomNav  from './components/BottomNav'
+import TopBar     from './components/TopBar'
+import { C } from './utils/helpers'
 
-function PrivateRoute({ children }) {
-  const { user } = useAuth()
-  return user ? children : <Navigate to="/login" replace />
-}
+const PAGES = ['home', 'members', 'entries', 'attendance', 'report']
 
 export default function App() {
+  const { user } = useApp()
+  const [page, setPage] = useState('home')
+
+  if (!user) return <><Login /><Toast /></>
+
+  const renderPage = () => {
+    switch (page) {
+      case 'home':       return <Home />
+      case 'members':    return <Members />
+      case 'entries':    return <Entries />
+      case 'attendance': return <Attendance />
+      case 'report':     return <Report />
+      case 'admin':      return <Admin setPage={setPage} />
+      default:           return <Home />
+    }
+  }
+
   return (
-    <>
+    <div style={{
+      maxWidth: 430,
+      margin: '0 auto',
+      minHeight: '100dvh',
+      background: C.bg,
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'relative',
+    }}>
+      <TopBar page={page} setPage={setPage} />
+
+      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 80 }}>
+        {renderPage()}
+      </div>
+
+      {page !== 'admin' && (
+        <BottomNav page={page} setPage={setPage} />
+      )}
+
       <Toast />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-          <Route index              element={<Home />} />
-          <Route path="members"    element={<Members />} />
-          <Route path="entries"    element={<Entries />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="report"     element={<Report />} />
-          <Route path="admin"      element={<Admin />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
+    </div>
   )
 }
