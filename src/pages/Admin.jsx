@@ -3,7 +3,8 @@ import { useApp } from '../contexts/AppContext'
 import { C } from '../utils/helpers'
 
 export default function Admin({ setPage }) {
-  const { user, role, logout, createUser, getUsers, deleteUser, showToast } = useApp()
+  const { user, logout, createUser, getUsers, deleteUser, showToast } = useApp()
+  const role = user?.role
   const [tab,     setTab]     = useState('users')
   const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(false)

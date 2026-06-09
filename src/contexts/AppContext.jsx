@@ -169,7 +169,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       // auth
-      user, authLoading, login, logout,
+      user, role: user?.role || null, authLoading, login, logout,
       // data
       entries, members, dataLoading,
       // entries
