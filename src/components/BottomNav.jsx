@@ -1,11 +1,9 @@
 import { C } from '../utils/helpers'
 
 const NAV = [
-  { id: 'home',       icon: 'ti-home',        label: 'Home'       },
-  { id: 'members',    icon: 'ti-users',        label: 'Members'    },
-  { id: 'entries',    icon: 'ti-notes',        label: 'Entries'    },
-  { id: 'attendance', icon: 'ti-checkbox',     label: 'Attendance' },
-  { id: 'report',     icon: 'ti-chart-bar',    label: 'Report'     },
+  { id: 'home',    icon: 'ti-home',      label: 'Home'    },
+  { id: 'entries', icon: 'ti-notes',     label: 'Entries' },
+  { id: 'report',  icon: 'ti-chart-bar', label: 'Report'  },
 ]
 
 export default function BottomNav({ page, setPage }) {
@@ -27,14 +25,14 @@ export default function BottomNav({ page, setPage }) {
             flex: 1, display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 2,
             background: 'none', border: 'none', cursor: 'pointer',
-            padding: '8px 4px 4px',
+            padding: '10px 4px 4px',
             color: active ? C.hdrAcc : C.mid,
             transition: 'color .15s',
           }}>
-            <i className={`ti ${item.icon}`} style={{ fontSize: 22 }} />
-            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.02em' }}>{item.label}</span>
+            <i className={`ti ${item.icon}`} style={{ fontSize: 24 }} />
+            <span style={{ fontSize: 10, fontWeight: 600 }}>{item.label}</span>
             {active && (
-              <div style={{ width: 18, height: 2, background: C.hdrAcc, borderRadius: 2, marginTop: 1 }} />
+              <div style={{ width: 20, height: 2.5, background: C.hdrAcc, borderRadius: 2, marginTop: 1 }} />
             )}
           </button>
         )

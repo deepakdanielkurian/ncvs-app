@@ -3,30 +3,46 @@ import { useApp } from '../contexts/AppContext'
 import { C, inr, fmtDate, filterByPeriod, todayStr } from '../utils/helpers'
 
 const PERIOD_OPTS = [
-  ['all',   'Full FY'],
+  ['all',   'Full FY 2026\u201327'],
   ['month', 'This month'],
   ['week',  'This week'],
   ['day',   'Today'],
 ]
 
+// ── PDF colour arrays ──
+const HDR   = [8,80,65]
+const GLD   = [186,117,23]
+const NRI_C = [12,68,124];   const NRI_L = [230,241,251]
+const KER_C = [8,80,65];     const KER_L = [225,245,238]
+const PUR_C = [60,52,137];   const PUR_L = [238,237,254]
+const AMB_C = [99,56,6];     const AMB_L = [250,238,218]
+const RED_C = [163,45,45];   const RED_L = [252,235,235]
+const MID   = [136,135,128]
+const DK    = [44,44,42]
+const BG    = [241,239,232]
+const BD    = [211,209,199]
+const W     = [255,255,255]
+const RS    = 'Rs.'   // jsPDF safe rupee label
+
 export default function Report() {
   const { entries, showToast } = useApp()
-  const [grp,     setGrp]     = useState('NRI')
-  const [period,  setPeriod]  = useState('all')
-  const [pdfBusy, setPdfBusy] = useState(false)
+  const [grp,    setGrp]    = useState('NRI')
+  const [period, setPeriod] = useState('all')
+  const [busy,   setBusy]   = useState(false)
 
   const base   = filterByPeriod(entries.filter(e => e.group === grp), period)
   const subs   = base.filter(e => e.type === 'Subscription')
   const dons   = base.filter(e => e.type === 'Donation')
-  const subTot = subs.reduce((a, e) => a + e.amount, 0)
-  const donTot = dons.reduce((a, e) => a + e.amount, 0)
+  const subTot = subs.reduce((a, e) => a + (e.amount || 0), 0)
+  const donTot = dons.reduce((a, e) => a + (e.amount || 0), 0)
   const grand  = subTot + donTot
   const thC    = grp === 'NRI' ? C.nri : C.ker
+  const thL    = grp === 'NRI' ? C.nriLt : C.kerLt
   const pLabel = PERIOD_OPTS.find(([k]) => k === period)?.[1] || 'Full FY'
 
   const genPDF = async () => {
-    setPdfBusy(true)
-    await new Promise(r => setTimeout(r, 50))
+    setBusy(true)
+    await new Promise(r => setTimeout(r, 60))
     try {
       const { default: jsPDF } = await import('jspdf')
       await import('jspdf-autotable')
@@ -34,211 +50,510 @@ export default function Report() {
       buildPDF(doc, grp, base, subs, dons, subTot, donTot, grand, pLabel)
       addFooters(doc)
       doc.save(`NCVS_${grp}_Report_FY2026-27.pdf`)
-      showToast(`✅ ${grp} PDF downloaded!`)
-    } catch (e) { console.error(e); showToast('❌ PDF failed') }
-    setPdfBusy(false)
+      showToast(`\u2705 ${grp} PDF downloaded!`)
+    } catch (e) { console.error(e); showToast('\u274c PDF failed: ' + e.message) }
+    setBusy(false)
   }
 
   const copyText = () => {
     const txt = buildText(grp, subs, dons, subTot, donTot, grand, pLabel)
     navigator.clipboard?.writeText(txt)
-      .then(() => showToast(`✅ ${grp} report copied!`))
-      .catch(() => showToast('❌ Copy failed'))
+      .then(() => showToast(`\u2705 ${grp} report copied!`))
+      .catch(() => showToast('\u274c Copy failed'))
   }
 
   return (
-    <div style={{ padding: '12px 13px' }}>
+    <div style={{ padding: '14px 14px', maxWidth: 430, margin: '0 auto' }}>
+
       {/* Group toggle */}
-      <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-        {[['NRI', C.nri, C.nriLt], ['Kerala', C.ker, C.kerLt]].map(([g,col,bg]) => (
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['NRI', C.nri, C.nriLt], ['Kerala', C.ker, C.kerLt]].map(([g, col, bg]) => (
           <button key={g} onClick={() => setGrp(g)} style={{
-            flex:1, padding:'9px 4px', border:`1px solid ${grp===g?col:C.bd}`,
-            borderRadius:8, background:grp===g?bg:'#fff',
-            color:grp===g?col:C.mid, fontSize:12, fontWeight:grp===g?700:500, cursor:'pointer',
-          }}>{g} Group</button>
+            flex: 1, padding: '11px 4px',
+            border: `2px solid ${grp === g ? col : C.bd}`,
+            borderRadius: 10,
+            background: grp === g ? bg : '#fff',
+            color: grp === g ? col : C.mid,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            transition: 'all .15s',
+          }}>
+            {g} Group
+          </button>
         ))}
       </div>
 
-      {/* Period */}
-      <div style={{ background:'#fff', borderRadius:10, border:`1px solid ${C.bd}`, padding:'13px', marginBottom:12 }}>
-        <div style={{ fontSize:11, fontWeight:600, color:C.mid, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8 }}>Period</div>
-        <div style={{ display:'flex', gap:6 }}>
-          {PERIOD_OPTS.map(([k,v]) => (
-            <button key={k} onClick={()=>setPeriod(k)} style={{
-              flex:1, padding:'7px 4px', border:`1px solid ${period===k?C.hdr:C.bd}`,
-              borderRadius:8, background:period===k?C.hdr:'#fff',
-              color:period===k?'#fff':C.mid, fontSize:11, fontWeight:period===k?600:500, cursor:'pointer',
-            }}>{v}</button>
+      {/* Period selector */}
+      <div style={{ background: '#fff', borderRadius: 10, border: `1px solid ${C.bd}`, padding: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.mid, textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 10 }}>
+          Period
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {PERIOD_OPTS.map(([k, v]) => (
+            <button key={k} onClick={() => setPeriod(k)} style={{
+              flex: 1, padding: '8px 4px',
+              border: `1px solid ${period === k ? C.hdr : C.bd}`,
+              borderRadius: 8,
+              background: period === k ? C.hdr : '#fff',
+              color: period === k ? '#fff' : C.mid,
+              fontSize: 10, fontWeight: 600, cursor: 'pointer',
+              lineHeight: 1.3,
+            }}>
+              {k === 'all' ? 'Full FY' : v.split(' ').slice(1).join(' ')}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Subscription block */}
-      <ReportBlock
-        title={`${grp} — Monthly Subscription`}
-        total={inr(subTot)} color={thC}
-        rows={subs} amtColor={C.amb}
-        countLabel={`${subs.length} member${subs.length!==1?'s':''}`}
-      />
-
-      {/* Donation block */}
-      <ReportBlock
-        title={`${grp} — Donations`}
-        total={inr(donTot)} color={C.pur}
-        rows={dons} amtColor={C.pur}
-        countLabel={`${dons.length} donor${dons.length!==1?'s':''}`}
-      />
-
-      {/* Grand total */}
-      <div style={{ background:C.pur, borderRadius:10, padding:16, marginBottom:14, textAlign:'center' }}>
-        <div style={{ fontSize:11, color:'#ADA9E8', marginBottom:5 }}>{grp} Group Grand Total · {pLabel}</div>
-        <div style={{ fontSize:28, fontWeight:700, color:'#fff', fontFamily:'Georgia, serif' }}>{inr(grand)}</div>
-        <div style={{ fontSize:11, color:'#ADA9E8', marginTop:4 }}>Subscription {inr(subTot)} + Donation {inr(donTot)}</div>
+      {/* Summary banner */}
+      <div style={{
+        background: `linear-gradient(135deg, ${thC} 0%, ${thC}dd 100%)`,
+        borderRadius: 12, padding: '18px 16px', marginBottom: 14,
+      }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,.75)', marginBottom: 4, letterSpacing: '.04em' }}>
+          {grp} GROUP \u00b7 {pLabel}
+        </div>
+        <div style={{ fontSize: 32, fontWeight: 700, color: '#fff', letterSpacing: '-.5px' }}>
+          {inr(grand)}
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
+          <div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.65)' }}>Subscription</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{inr(subTot)}</div>
+          </div>
+          <div style={{ width: 1, background: 'rgba(255,255,255,.25)' }} />
+          <div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.65)' }}>Donations</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{inr(donTot)}</div>
+          </div>
+          <div style={{ width: 1, background: 'rgba(255,255,255,.25)' }} />
+          <div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.65)' }}>Members</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{subs.length}</div>
+          </div>
+          <div style={{ width: 1, background: 'rgba(255,255,255,.25)' }} />
+          <div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.65)' }}>Donors</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{dons.length}</div>
+          </div>
+        </div>
       </div>
 
-      {/* PDF busy */}
-      {pdfBusy && (
-        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', background:C.hdrLt, borderRadius:10, border:`1px solid ${C.hdrAcc}`, marginBottom:10 }}>
-          <div style={{ width:18, height:18, border:`2px solid ${C.hdrAcc}`, borderTopColor:C.hdr, borderRadius:'50%', animation:'spin .7s linear infinite', flexShrink:0 }} />
+      {/* Section 1 — Subscription */}
+      <ReportSection
+        title="Section 1 \u2014 Monthly Subscription"
+        count={`${subs.length} member${subs.length !== 1 ? 's' : ''}`}
+        total={inr(subTot)}
+        totalColor={thC}
+        headerBg={thC}
+        rows={subs}
+        amtColor={C.amb}
+        dateColor={thC}
+        rcptColor={thC}
+        showPeriod
+      />
+
+      {/* Section 2 — Donations */}
+      <ReportSection
+        title="Section 2 \u2014 Donations"
+        count={`${dons.length} donor${dons.length !== 1 ? 's' : ''}`}
+        total={inr(donTot)}
+        totalColor={C.pur}
+        headerBg={C.pur}
+        rows={dons}
+        amtColor={C.pur}
+        dateColor={thC}
+        rcptColor={C.pur}
+      />
+
+      {/* Grand total card */}
+      <div style={{
+        background: C.purLt, borderRadius: 12,
+        border: `2px solid ${C.pur}`,
+        padding: '16px', marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.pur, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+              {grp} Group \u2014 Grand Total
+            </div>
+            <div style={{ fontSize: 11, color: C.mid, marginTop: 3 }}>
+              {pLabel} \u00b7 FY 2026\u201327
+            </div>
+            <div style={{ fontSize: 11, color: C.mid, marginTop: 2 }}>
+              {inr(subTot)} sub + {inr(donTot)} donation
+            </div>
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: C.pur, letterSpacing: '-.5px' }}>
+            {inr(grand)}
+          </div>
+        </div>
+      </div>
+
+      {/* PDF spinner */}
+      {busy && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '12px 14px', background: C.hdrLt,
+          borderRadius: 10, border: `1px solid ${C.hdrAcc}`, marginBottom: 12,
+        }}>
+          <div style={{ width: 18, height: 18, border: `2px solid ${C.hdrAcc}`, borderTopColor: C.hdr, borderRadius: '50%', animation: 'spin .7s linear infinite', flexShrink: 0 }} />
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <span style={{ fontSize:13, color:C.hdr, fontWeight:500 }}>Generating PDF…</span>
+          <span style={{ fontSize: 13, color: C.hdr, fontWeight: 600 }}>Generating PDF\u2026</span>
         </div>
       )}
 
-      <button onClick={genPDF} disabled={pdfBusy} style={{
-        width:'100%', padding:13, background:pdfBusy?C.mid:thC,
-        color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:700,
-        cursor:pdfBusy?'not-allowed':'pointer', marginBottom:8,
-        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+      {/* Action buttons */}
+      <button onClick={genPDF} disabled={busy} style={{
+        width: '100%', padding: 14,
+        background: busy ? C.mid : thC,
+        color: '#fff', border: 'none', borderRadius: 10,
+        fontSize: 14, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
+        marginBottom: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
-        <i className="ti ti-file-download" style={{fontSize:18}} /> Download {grp} Report PDF
+        <i className="ti ti-file-download" style={{ fontSize: 20 }} />
+        Download {grp} Report PDF
       </button>
 
       <button onClick={copyText} style={{
-        width:'100%', padding:13, background:'#fff', color:C.dk,
-        border:`1px solid ${C.bd}`, borderRadius:10, fontSize:14, fontWeight:600,
-        cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+        width: '100%', padding: 14,
+        background: '#fff', color: C.dk,
+        border: `1px solid ${C.bd}`, borderRadius: 10,
+        fontSize: 14, fontWeight: 600, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
-        <i className="ti ti-copy" style={{fontSize:18, color:C.mid}} /> Copy {grp} report text
+        <i className="ti ti-copy" style={{ fontSize: 20, color: C.mid }} />
+        Copy {grp} Report Text
       </button>
     </div>
   )
 }
 
-function ReportBlock({ title, total, color, rows, amtColor, countLabel }) {
+// ─────────────────────────────────────────────
+// Report section component
+// ─────────────────────────────────────────────
+function ReportSection({ title, count, total, totalColor, headerBg, rows, amtColor, dateColor, rcptColor, showPeriod }) {
   return (
-    <div style={{ background:'#fff', borderRadius:10, border:`1px solid ${C.bd}`, overflow:'hidden', marginBottom:10 }}>
-      <div style={{ background:color, padding:'10px 13px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <div style={{ fontSize:12, fontWeight:600, color:'#fff' }}>{title}</div>
-        <div style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{total}</div>
+    <div style={{
+      background: '#fff', borderRadius: 12,
+      border: `1px solid ${C.bd}`,
+      overflow: 'hidden', marginBottom: 14,
+    }}>
+      {/* Section header */}
+      <div style={{
+        background: headerBg, padding: '10px 14px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{title}</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,.75)', marginTop: 2 }}>{count}</div>
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{total}</div>
       </div>
-      {rows.length ? (
-        <div style={{ overflowX:'auto' }}>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-            <thead>
-              <tr style={{ background:C.bg }}>
-                {['Sl','Name','Date Received','Receipt No','Pay Method','Txn ID','Amount'].map(h => (
-                  <th key={h} style={{ fontSize:9, fontWeight:600, color:C.mid, textAlign:h==='Amount'?'right':'left', padding:'5px 7px', borderBottom:`1px solid ${C.bd}`, whiteSpace:'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((e, i) => (
-                <tr key={e.id} style={{ background: i%2===0?'#fff':'#FAFAF8' }}>
-                  <td style={{ padding:'6px 7px', color:C.mid, fontSize:10 }}>{i+1}</td>
-                  <td style={{ padding:'6px 7px', color:C.dk, fontWeight:600, maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {e.name}{e.nonSH&&<span style={{color:C.red,fontSize:8}}> [NS]</span>}
-                    {e.period&&<div style={{fontSize:9,color:C.mid,fontWeight:400}}>{e.period}</div>}
-                  </td>
-                  <td style={{ padding:'6px 7px', color, fontWeight:600, fontSize:10, whiteSpace:'nowrap' }}>{fmtDate(e.date)}</td>
-                  <td style={{ padding:'6px 7px', color, fontWeight:600 }}>{e.receipt||'—'}</td>
-                  <td style={{ padding:'6px 7px', color:C.dk, fontSize:10, maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.pay||'—'}</td>
-                  <td style={{ padding:'6px 7px', color:C.mid, fontSize:10 }}>{e.txn?e.txn.slice(0,12)+'…':'—'}</td>
-                  <td style={{ padding:'6px 7px', color:amtColor, fontWeight:700, textAlign:'right' }}>{inr(e.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+      {/* Table */}
+      {rows.length === 0 ? (
+        <div style={{ padding: '20px 14px', fontSize: 13, color: C.mid, textAlign: 'center' }}>
+          No entries for this period
         </div>
       ) : (
-        <div style={{ padding:'12px 13px', fontSize:12, color:C.mid }}>No entries for this period</div>
+        <>
+          {/* Column headers */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '28px 1fr 80px 64px 54px',
+            background: C.bg, padding: '6px 14px',
+            borderBottom: `1px solid ${C.bd}`,
+          }}>
+            {['Sl', 'Name', 'Date', 'Receipt', 'Amount'].map(h => (
+              <div key={h} style={{
+                fontSize: 9, fontWeight: 700, color: C.mid,
+                textAlign: h === 'Amount' ? 'right' : h === 'Sl' ? 'center' : 'left',
+                textTransform: 'uppercase', letterSpacing: '.04em',
+              }}>{h}</div>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {rows.map((e, i) => (
+            <div key={e.id} style={{
+              display: 'grid',
+              gridTemplateColumns: '28px 1fr 80px 64px 54px',
+              padding: '7px 14px',
+              background: i % 2 === 0 ? '#fff' : '#FAFAF8',
+              borderBottom: i < rows.length - 1 ? `1px solid ${C.bd}` : 'none',
+              alignItems: 'start',
+            }}>
+              {/* Sl */}
+              <div style={{ fontSize: 10, color: C.mid, textAlign: 'center', paddingTop: 1 }}>{i + 1}</div>
+
+              {/* Name */}
+              <div style={{ paddingRight: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.dk, lineHeight: 1.3 }}>
+                  {e.name}
+                  {e.nonSH && <span style={{ color: C.red, fontSize: 8, marginLeft: 3 }}>[NS]</span>}
+                </div>
+                {showPeriod && e.period && (
+                  <div style={{ fontSize: 9, color: C.mid, marginTop: 1 }}>{e.period}</div>
+                )}
+                {e.pay && (
+                  <div style={{ fontSize: 9, color: C.mid, marginTop: 1 }}>{e.pay}</div>
+                )}
+                {e.txn && (
+                  <div style={{ fontSize: 9, color: C.mid, marginTop: 1 }}>Txn: {e.txn.slice(0, 16)}</div>
+                )}
+              </div>
+
+              {/* Date */}
+              <div style={{ fontSize: 10, fontWeight: 600, color: dateColor, lineHeight: 1.3 }}>
+                {fmtDate(e.date)}
+              </div>
+
+              {/* Receipt */}
+              <div style={{ fontSize: 10, fontWeight: 700, color: rcptColor }}>
+                {e.receipt || '\u2014'}
+              </div>
+
+              {/* Amount */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: amtColor, textAlign: 'right' }}>
+                {inr(e.amount)}
+              </div>
+            </div>
+          ))}
+
+          {/* Subtotal */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '9px 14px',
+            background: totalColor + '15',
+            borderTop: `2px solid ${totalColor}40`,
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.mid }}>
+              {count}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: totalColor }}>
+              {total}
+            </div>
+          </div>
+        </>
       )}
-      <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 13px', borderTop:`2px solid ${C.bd}` }}>
-        <span style={{ fontSize:11, fontWeight:600, color:C.mid }}>{countLabel}</span>
-        <span style={{ fontSize:13, fontWeight:700, color }}>{total}</span>
-      </div>
     </div>
   )
 }
 
-// ── PDF builder ──────────────────────────────
+// ─────────────────────────────────────────────
+// PDF builder
+// ─────────────────────────────────────────────
 function buildPDF(doc, grp, base, subs, dons, sT, dT, grand, pLabel) {
-  const W=210, M=13, AW=197
-  const thC  = grp==='NRI'?[12,68,124]:[8,80,65]
-  const thL  = grp==='NRI'?[230,241,251]:[225,245,238]
-  const PUR=[60,52,137], PUR_L=[238,237,254]
-  const AMB=[99,56,6],   AMB_L=[250,238,218]
-  const GLD=[186,117,23], HDR=[8,80,65]
-  const MID=[136,135,128], DK=[44,44,42], BG=[241,239,232], BD=[211,209,199]
-  const RED=[163,45,45],  RED_L=[252,235,235], W255=[255,255,255]
+  const PW = 210, M = 13, AW = 184
+  const thC = grp === 'NRI' ? NRI_C : KER_C
+  const thL = grp === 'NRI' ? NRI_L : KER_L
 
-  doc.setFillColor(...HDR); doc.rect(0,0,W,30,'F')
-  doc.setFillColor(...GLD); doc.rect(0,0,4,30,'F')
-  doc.setFillColor(29,158,117); doc.rect(0,30,W,1.5,'F')
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...W255)
-  doc.text('NIRANAM CHUNDAN VALLASAMITHI',M+2,10)
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(159,225,203)
-  doc.text('Reg. No. PTM/TC/229/2021  |  niranamchundan@gmail.com',M+2,16)
-  doc.text('Niranam P.O., Thiruvalla, Pathanamthitta, Kerala – 689621',M+2,21)
-  doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(225,245,238)
-  doc.text(`${grp} GROUP REPORT`,W-M,10,{align:'right'})
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(159,225,203)
-  doc.text('Financial Year: 01 Apr 2026 – 31 Mar 2027',W-M,16,{align:'right'})
-  doc.text(`Period: ${pLabel}  |  Date: ${fmtDate(todayStr())}`,W-M,21,{align:'right'})
-  doc.text('Secretary, NCVS',W-M,26,{align:'right'})
+  // ── Header ──
+  doc.setFillColor(...HDR); doc.rect(0, 0, PW, 32, 'F')
+  doc.setFillColor(...GLD); doc.rect(0, 0, 4, 32, 'F')
+  doc.setFillColor(29, 158, 117); doc.rect(0, 32, PW, 1.5, 'F')
 
-  let y=36
-  const cw=AW/4
-  const cards=[{l:'Members',v:String(subs.length),c:thC,bg:thL},{l:'Subscription',v:inr(sT),c:AMB,bg:AMB_L},{l:'Donations',v:inr(dT),c:PUR,bg:PUR_L},{l:'Grand Total',v:inr(grand),c:thC,bg:thL}]
-  cards.forEach((card,i)=>{const x=M+i*cw; doc.setFillColor(...card.bg); doc.roundedRect(x,y,cw-2,18,2,2,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...card.c); doc.text(card.v,x+cw/2-1,y+8,{align:'center'}); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...MID); doc.text(card.l,x+cw/2-1,y+14,{align:'center'})})
-  y+=22
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(13.5); doc.setTextColor(...W)
+  doc.text('NIRANAM CHUNDAN VALLASAMITHI', M + 2, 11)
 
-  doc.setFillColor(...thL); doc.roundedRect(M,y,AW,8,2,2,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...thC); doc.text('Financial Year: 01 Apr 2026 – 31 Mar 2027',M+4,y+5); doc.text(`Report Date: ${fmtDate(todayStr())}`,W-M-4,y+5,{align:'right'}); y+=12
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(159, 225, 203)
+  doc.text('Reg. No. PTM/TC/229/2021  |  niranamchundan@gmail.com', M + 2, 17.5)
+  doc.text('Niranam P.O., Thiruvalla, Pathanamthitta, Kerala \u2013 689621', M + 2, 23)
 
-  doc.setFillColor(...thC); doc.roundedRect(M,y,AW,10,2,2,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...W255); doc.text(`Section 1 — ${grp} Monthly Subscription`,M+5,y+6.5); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(225,245,238); doc.text(`${subs.length} members  |  Total: ${inr(sT)}`,W-M-5,y+6.5,{align:'right'}); y+=12
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(225, 245, 238)
+  doc.text(`${grp} GROUP REPORT`, PW - M, 11, { align: 'right' })
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(159, 225, 203)
+  doc.text('Financial Year: 01 Apr 2026 \u2013 31 Mar 2027', PW - M, 17.5, { align: 'right' })
+  doc.text(`Period: ${pLabel}  |  Date: ${fmtDate(todayStr())}`, PW - M, 23, { align: 'right' })
+  doc.text('Prepared by: Secretary, NCVS', PW - M, 28.5, { align: 'right' })
 
-  if(subs.length){
-    doc.autoTable({startY:y,margin:{left:M,right:M},head:[['Sl','Name','Period','Date Received','Receipt No','Pay Method','Txn ID','Amount']],body:subs.map((e,i)=>[i+1,e.name+(e.nonSH?' [Non-SH]':''),e.period||'—',fmtDate(e.date),e.receipt||'—',e.pay||'—',e.txn?e.txn.slice(0,14):'—',inr(e.amount)]),styles:{fontSize:7.5,cellPadding:2.5,textColor:DK,lineColor:BD,lineWidth:0.2},headStyles:{fillColor:thC,textColor:W255,fontStyle:'bold',fontSize:7.5},alternateRowStyles:{fillColor:BG},columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:40},2:{cellWidth:14,halign:'center'},3:{cellWidth:22,halign:'center',textColor:thC,fontStyle:'bold'},4:{cellWidth:22,textColor:thC,fontStyle:'bold'},5:{cellWidth:28},6:{cellWidth:20,textColor:MID},7:{cellWidth:23,halign:'right',fontStyle:'bold'}},foot:[[{content:'Subscription Total',colSpan:7,styles:{halign:'right',fontStyle:'bold',fillColor:thL,textColor:thC}},{content:inr(sT),styles:{halign:'right',fontStyle:'bold',fillColor:thL,textColor:thC,fontSize:9}}]]})
-    y=doc.lastAutoTable.finalY+8
-  } else {doc.setFontSize(9);doc.setTextColor(...MID);doc.text('No subscription entries.',M,y+6);y+=12}
+  let y = 38
 
-  if(y>240){doc.addPage();y=20}
-  doc.setFillColor(...PUR); doc.roundedRect(M,y,AW,10,2,2,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...W255); doc.text(`Section 2 — ${grp} Donations`,M+5,y+6.5); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(238,237,254); doc.text(`${dons.length} donors  |  Total: ${inr(dT)}`,W-M-5,y+6.5,{align:'right'}); y+=12
+  // ── Summary cards ──
+  const cw = AW / 4
+  const cards = [
+    { l: 'Members', v: String(subs.length), c: thC, bg: thL },
+    { l: 'Subscription', v: `${RS} ${sT.toLocaleString('en-IN')}`, c: AMB_C, bg: AMB_L },
+    { l: 'Donations', v: `${RS} ${dT.toLocaleString('en-IN')}`, c: PUR_C, bg: PUR_L },
+    { l: 'Grand Total', v: `${RS} ${grand.toLocaleString('en-IN')}`, c: thC, bg: thL },
+  ]
+  cards.forEach((card, i) => {
+    const x = M + i * cw
+    doc.setFillColor(...card.bg); doc.roundedRect(x, y, cw - 2, 20, 2, 2, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...card.c)
+    doc.text(card.v, x + (cw - 2) / 2, y + 9, { align: 'center' })
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MID)
+    doc.text(card.l, x + (cw - 2) / 2, y + 15, { align: 'center' })
+  })
+  y += 25
 
-  if(dons.length){
-    doc.autoTable({startY:y,margin:{left:M,right:M},head:[['Sl','Donor Name','Date Received','Receipt No','Pay Method','Txn ID','Amount']],body:dons.map((e,i)=>[i+1,e.name+(e.nonSH?' [Non-SH]':''),fmtDate(e.date),e.receipt||'—',e.pay||'—',e.txn?e.txn.slice(0,14):'—',inr(e.amount)]),styles:{fontSize:7.5,cellPadding:2.5,textColor:DK,lineColor:BD,lineWidth:0.2},headStyles:{fillColor:PUR,textColor:W255,fontStyle:'bold',fontSize:7.5},alternateRowStyles:{fillColor:BG},columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:48},2:{cellWidth:24,halign:'center',textColor:thC,fontStyle:'bold'},3:{cellWidth:24,textColor:PUR,fontStyle:'bold'},4:{cellWidth:30},5:{cellWidth:22,textColor:MID},6:{cellWidth:21,halign:'right',fontStyle:'bold'}},foot:[[{content:'Donation Total',colSpan:6,styles:{halign:'right',fontStyle:'bold',fillColor:PUR_L,textColor:PUR}},{content:inr(dT),styles:{halign:'right',fontStyle:'bold',fillColor:PUR_L,textColor:PUR,fontSize:9}}]]})
-    y=doc.lastAutoTable.finalY+8
-  } else {doc.setFontSize(9);doc.setTextColor(...MID);doc.text('No donation entries.',M,y+6);y+=12}
+  // ── FY info bar ──
+  doc.setFillColor(...thL); doc.roundedRect(M, y, AW, 9, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...thC)
+  doc.text('Financial Year: 01 Apr 2026 \u2013 31 Mar 2027', M + 5, y + 6)
+  doc.text(`Report Date: ${fmtDate(todayStr())}`, PW - M - 5, y + 6, { align: 'right' })
+  y += 14
 
-  if(y>255){doc.addPage();y=20}
-  doc.setFillColor(...PUR_L); doc.roundedRect(M,y,AW,20,3,3,'F'); doc.setDrawColor(...PUR); doc.setLineWidth(0.8); doc.line(M,y,M+AW,y); doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...PUR); doc.text(`${grp} GROUP — GRAND TOTAL`,M+6,y+8); doc.setFontSize(8); doc.setTextColor(107,100,215); doc.text(`Subscription ${inr(sT)}  +  Donation ${inr(dT)}`,M+6,y+15); doc.setFontSize(14); doc.setTextColor(...PUR); doc.text(inr(grand),W-M-6,y+13,{align:'right'})
+  // ── Section 1: Subscription ──
+  y = drawSection(doc, `Section 1 \u2014 ${grp} Monthly Subscription`,
+    `${subs.length} members  |  ${RS} ${sT.toLocaleString('en-IN')}`,
+    subs, thC, thL, AMB_C, true, y, M, AW, PW)
 
-  const ns=base.filter(e=>e.nonSH)
-  if(ns.length){y+=26; doc.setFillColor(...RED_L); doc.roundedRect(M,y,AW,10,2,2,'F'); doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...RED); doc.text('Non-shareholder:',M+4,y+6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...DK); doc.text(ns.map(e=>e.name).join(', ').slice(0,110),M+35,y+6.5)}
+  if (y > 240) { doc.addPage(); y = 20 }
+
+  // ── Section 2: Donations ──
+  y = drawSection(doc, `Section 2 \u2014 ${grp} Donations`,
+    `${dons.length} donors  |  ${RS} ${dT.toLocaleString('en-IN')}`,
+    dons, PUR_C, PUR_L, PUR_C, false, y, M, AW, PW)
+
+  if (y > 258) { doc.addPage(); y = 20 }
+
+  // ── Grand total ──
+  doc.setFillColor(...PUR_L); doc.roundedRect(M, y, AW, 22, 3, 3, 'F')
+  doc.setDrawColor(...PUR_C); doc.setLineWidth(0.8); doc.line(M, y, M + AW, y)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...PUR_C)
+  doc.text(`${grp} GROUP \u2014 GRAND TOTAL`, M + 8, y + 9)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MID)
+  doc.text(`Subscription ${RS} ${sT.toLocaleString('en-IN')}  +  Donation ${RS} ${dT.toLocaleString('en-IN')}`, M + 8, y + 16)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...PUR_C)
+  doc.text(`${RS} ${grand.toLocaleString('en-IN')}`, PW - M - 8, y + 14, { align: 'right' })
+  y += 27
+
+  // ── Non-SH note ──
+  const ns = base.filter(e => e.nonSH)
+  if (ns.length) {
+    if (y > 272) { doc.addPage(); y = 20 }
+    doc.setFillColor(...RED_L); doc.roundedRect(M, y, AW, 10, 2, 2, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...RED_C)
+    doc.text('Non-shareholder donors:', M + 5, y + 6.5)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...DK)
+    doc.text(ns.map(e => e.name).join(', ').slice(0, 120), M + 50, y + 6.5)
+  }
+
+  // ── Payment legend ──
+  y += 16
+  if (y > 272) { doc.addPage(); y = 20 }
+  const legend = [
+    { label: 'NCVS Acc Transfer', bg: AMB_L, c: AMB_C },
+    { label: 'GPay Mathai K M', bg: [234,243,222], c: [39,80,10] },
+    { label: 'By Hand / Cash', bg: BG, c: DK },
+    { label: 'Other / Custom', bg: [230,241,251], c: NRI_C },
+  ]
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...MID)
+  doc.text('PAYMENT METHOD LEGEND', M, y)
+  y += 5
+  const lw = AW / 4
+  legend.forEach((item, i) => {
+    const x = M + i * lw
+    doc.setFillColor(...item.bg); doc.roundedRect(x, y, lw - 3, 8, 1.5, 1.5, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.setTextColor(...item.c)
+    doc.text(item.label, x + (lw - 3) / 2, y + 5, { align: 'center' })
+  })
 }
 
-function addFooters(doc){
-  const n=doc.getNumberOfPages()
-  for(let p=1;p<=n;p++){
-    doc.setPage(p); doc.setFillColor(241,239,232); doc.rect(0,285,210,12,'F'); doc.setDrawColor(211,209,199); doc.setLineWidth(0.4); doc.line(0,285,210,285); doc.setFillColor(186,117,23); doc.rect(0,285,4,12,'F'); doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(136,135,128); doc.text('Niranam Chundan Vallasamithi  |  FY 01 Apr 2026 – 31 Mar 2027  |  Confidential',13,291.5); doc.text(`Page ${p} of ${n}`,197,291.5,{align:'right'})
+function drawSection(doc, title, subtitle, rows, hdrC, hdrL, amtC, showPeriod, startY, M, AW, PW) {
+  let y = startY
+
+  // Section heading bar
+  doc.setFillColor(...hdrC); doc.roundedRect(M, y, AW, 12, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(255, 255, 255)
+  doc.text(title, M + 6, y + 7.5)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(220, 240, 255)
+  doc.text(subtitle, PW - M - 6, y + 7.5, { align: 'right' })
+  y += 14
+
+  if (!rows.length) {
+    doc.setFontSize(9); doc.setTextColor(...MID)
+    doc.text('No entries for this period.', M, y + 6)
+    return y + 12
+  }
+
+  doc.autoTable({
+    startY: y,
+    margin: { left: M, right: M },
+    head: [[
+      { content: 'Sl', styles: { halign: 'center' } },
+      'Name',
+      ...(showPeriod ? ['Period'] : []),
+      { content: 'Date Received', styles: { halign: 'center' } },
+      { content: 'Receipt No', styles: { halign: 'center' } },
+      'Payment Method',
+      'Transaction ID',
+      { content: 'Amount', styles: { halign: 'right' } },
+    ]],
+    body: rows.map((e, i) => [
+      { content: i + 1, styles: { halign: 'center' } },
+      e.name + (e.nonSH ? ' [NS]' : ''),
+      ...(showPeriod ? [e.period || '\u2014'] : []),
+      { content: fmtDate(e.date), styles: { halign: 'center', textColor: hdrC, fontStyle: 'bold' } },
+      { content: e.receipt || '\u2014', styles: { halign: 'center', fontStyle: 'bold', textColor: hdrC } },
+      e.pay || '\u2014',
+      e.txn ? e.txn.slice(0, 16) : '\u2014',
+      { content: `${RS} ${(e.amount || 0).toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold', textColor: amtC } },
+    ]),
+    styles: { fontSize: 7.5, cellPadding: 2.8, textColor: DK, lineColor: BD, lineWidth: 0.2 },
+    headStyles: { fillColor: hdrC, textColor: W, fontStyle: 'bold', fontSize: 8 },
+    alternateRowStyles: { fillColor: BG },
+    columnStyles: showPeriod
+      ? { 0:{cellWidth:8}, 1:{cellWidth:40}, 2:{cellWidth:12,halign:'center'}, 3:{cellWidth:22}, 4:{cellWidth:20}, 5:{cellWidth:28}, 6:{cellWidth:22,textColor:MID}, 7:{cellWidth:AW-152,halign:'right'} }
+      : { 0:{cellWidth:8}, 1:{cellWidth:48}, 2:{cellWidth:22}, 3:{cellWidth:22}, 4:{cellWidth:30}, 5:{cellWidth:22,textColor:MID}, 6:{cellWidth:AW-152,halign:'right'} },
+    foot: [[
+      { content: `Total (${rows.length} ${showPeriod ? 'members' : 'donors'})`, colSpan: showPeriod ? 7 : 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: hdrL, textColor: hdrC, fontSize: 9 } },
+      { content: `${RS} ${rows.reduce((a,e)=>a+(e.amount||0),0).toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: hdrL, textColor: hdrC, fontSize: 10 } },
+    ]],
+    showFoot: 'lastPage',
+  })
+
+  return doc.lastAutoTable.finalY + 10
+}
+
+function addFooters(doc) {
+  const n = doc.getNumberOfPages()
+  for (let p = 1; p <= n; p++) {
+    doc.setPage(p)
+    doc.setFillColor(...BG); doc.rect(0, 286, 210, 11, 'F')
+    doc.setDrawColor(...BD); doc.setLineWidth(0.4); doc.line(0, 286, 210, 286)
+    doc.setFillColor(...GLD); doc.rect(0, 286, 4, 11, 'F')
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(...MID)
+    doc.text('Niranam Chundan Vallasamithi  |  FY 01 Apr 2026 \u2013 31 Mar 2027  |  Confidential \u2013 Internal Use Only', 13, 293)
+    doc.text(`Page ${p} of ${n}`, 197, 293, { align: 'right' })
   }
 }
 
 function buildText(grp, subs, dons, sT, dT, grand, pLabel) {
-  let t=`*NIRANAM CHUNDAN VALLASAMITHI*\n*${grp} GROUP REPORT*\nReg. No. PTM/TC/229/2021\nPeriod: ${pLabel} · FY: 01 Apr 2026 – 31 Mar 2027\n━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`
-  if(subs.length){t+=`*Section 1 — Monthly Subscription (${subs.length} members)*\n`;subs.forEach((e,i)=>{t+=`${i+1}. ${e.name}${e.period?' ('+e.period+')':''}${e.nonSH?' [Non-SH]':''}\n   Date: ${fmtDate(e.date)}  |  Receipt: ${e.receipt||'—'}  |  ${inr(e.amount)}\n   Pay: ${e.pay||'—'}${e.txn?'  |  Txn: '+e.txn:''}\n`});t+=`*Subscription Total: ${inr(sT)}*\n\n`}
-  if(dons.length){t+=`*Section 2 — Donations (${dons.length} donors)*\n`;dons.forEach((e,i)=>{t+=`${i+1}. ${e.name}${e.nonSH?' [Non-SH]':''}\n   Date: ${fmtDate(e.date)}  |  Receipt: ${e.receipt||'—'}  |  ${inr(e.amount)}\n   Pay: ${e.pay||'—'}${e.txn?'  |  Txn: '+e.txn:''}\n`});t+=`*Donation Total: ${inr(dT)}*\n\n`}
-  if(!subs.length&&!dons.length)t+=`_No entries for this period_\n\n`
-  t+=`━━━━━━━━━━━━━━━━━━━━━━━━━\n*${grp} GROUP TOTAL: ${inr(grand)}*\n━━━━━━━━━━━━━━━━━━━━━━━━━\n_Niranam, Thiruvalla · niranamchundan@gmail.com_`
+  const RS = 'Rs.'
+  let t = `*NIRANAM CHUNDAN VALLASAMITHI*\n`
+  t += `*${grp} GROUP REPORT*\n`
+  t += `Reg. No. PTM/TC/229/2021\n`
+  t += `Period: ${pLabel} \u00b7 FY: 01 Apr 2026 \u2013 31 Mar 2027\n`
+  t += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n`
+
+  if (subs.length) {
+    t += `*Section 1 \u2014 Monthly Subscription (${subs.length} members)*\n`
+    subs.forEach((e, i) => {
+      t += `${i + 1}. ${e.name}${e.period ? ' (' + e.period + ')' : ''}${e.nonSH ? ' [Non-SH]' : ''}\n`
+      t += `   Date: ${fmtDate(e.date)}  |  Receipt: ${e.receipt || '\u2014'}  |  ${RS} ${(e.amount||0).toLocaleString('en-IN')}\n`
+      t += `   Pay: ${e.pay || '\u2014'}${e.txn ? '  |  Txn: ' + e.txn : ''}\n`
+    })
+    t += `*Subscription Total: ${RS} ${sT.toLocaleString('en-IN')}*\n\n`
+  }
+
+  if (dons.length) {
+    t += `*Section 2 \u2014 Donations (${dons.length} donors)*\n`
+    dons.forEach((e, i) => {
+      t += `${i + 1}. ${e.name}${e.nonSH ? ' [Non-SH]' : ''}\n`
+      t += `   Date: ${fmtDate(e.date)}  |  Receipt: ${e.receipt || '\u2014'}  |  ${RS} ${(e.amount||0).toLocaleString('en-IN')}\n`
+      t += `   Pay: ${e.pay || '\u2014'}${e.txn ? '  |  Txn: ' + e.txn : ''}\n`
+    })
+    t += `*Donation Total: ${RS} ${dT.toLocaleString('en-IN')}*\n\n`
+  }
+
+  if (!subs.length && !dons.length) t += `_No entries for this period_\n\n`
+
+  t += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n`
+  t += `*${grp} GROUP TOTAL: ${RS} ${grand.toLocaleString('en-IN')}*\n`
+  t += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n`
+  t += `_Niranam, Thiruvalla \u00b7 niranamchundan@gmail.com_`
   return t
 }

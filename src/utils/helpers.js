@@ -1,16 +1,19 @@
 export const MONTHS = 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')
 
+// Use unicode escape for rupee symbol to avoid encoding issues
+const RS = '\u20b9'
+
 export const inr = n => {
-  if (!n && n !== 0) return '₹0'
+  if (!n && n !== 0) return RS + '0'
   n = Math.round(Number(n))
   let s = n.toString(), r = s.slice(-3), rest = s.slice(0, -3), p = []
   while (rest.length > 2) { p.push(rest.slice(-2)); rest = rest.slice(0, -2) }
   if (rest) p.push(rest); p.reverse()
-  return '₹' + (p.length ? p.join(',') + ',' + r : r)
+  return RS + (p.length ? p.join(',') + ',' + r : r)
 }
 
 export const fmtDate = d => {
-  if (!d) return '—'
+  if (!d) return '\u2014'
   const [y, m, dd] = d.split('-')
   return `${+dd} ${MONTHS[+m - 1]} ${y}`
 }
@@ -22,7 +25,7 @@ export const initials = name =>
 
 export const PAY_METHODS = [
   'NCVS Acc Transfer',
-  'GPay – Mathai K M (Treasurer)',
+  'GPay \u2013 Mathai K M (Treasurer)',
   'By Hand (Cash)',
   'Other'
 ]
@@ -37,7 +40,6 @@ export const filterByPeriod = (list, period) => {
   return list
 }
 
-// Colors
 export const C = {
   hdr:    '#085041', hdrAcc: '#1D9E75', hdrLt: '#E1F5EE',
   nri:    '#0C447C', nriLt:  '#E6F1FB',
